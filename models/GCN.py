@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score
 
 spdot = tf.sparse_tensor_dense_matmul
 dot = tf.matmul
-tf.set_random_seed(15)
+# tf.set_random_seed(15)
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -35,9 +35,11 @@ class GCN():
             a sesssion later on.
 
         """
-        self.A = sp_matrix_to_sp_tensor(A)
-        self.X = sp_matrix_to_sp_tensor(X)
-
+        
+        # self.A = sp_matrix_to_sp_tensor(A)
+        # self.X = sp_matrix_to_sp_tensor(X)
+        self.A = tf.constant(A.todense(), dtype=tf.float32)
+        self.X = tf.constant(X.todense(), dtype=tf.float32)
         # weight to learn
         self.W1 = tf.Variable(
                     xavier_init((X.shape[1], sizes[0])), dtype=tf.float32)
@@ -47,12 +49,17 @@ class GCN():
         self.node_ids = tf.placeholder(tf.int32, [None], 'node_ids')
         self.node_labels = tf.placeholder(tf.int32, [None, sizes[1]], 'node_labels')
 
+        self.subA = tf.gather(self.A, self.node_ids)
+        self.subX = tf.gather(self.X, self.node_ids)
+
         # build two layers
         act = tf.nn.relu if with_relu else lambda x: x
-        self.h1 = self.SparseConv(self.A, self.X, act)
-        self.h2 = self.DenseConv(self.A, self.h1)
+        self.h1 = self.SparseConv(self.subA, self.subX, act)
+        # self.h1 = tf.gather(self.h1, self.node_ids)
+        self.h2 = self.DenseConv(self.subA, self.h1)
         
-        self.logits = tf.gather(self.h2, self.node_ids)
+        # self.logits = tf.gather(self.h2, self.node_ids)
+        self.logits = self.h2
         self.predictions = tf.nn.softmax(self.logits)
         self.loss_per_node = tf.nn.softmax_cross_entropy_with_logits_v2(
                                 logits=self.logits, 
@@ -83,8 +90,9 @@ class GCN():
         -------
         A dense tensor
         """
-        _prod = spdot(X, self.W1)
-        _prod = spdot(A, _prod)
+        # _prod = dot(X, self.W1)
+        _prod = dot(tf.transpose(A), X)
+        _prod = dot(_prod, self.W1)
         return act(_prod)
 
     def DenseConv(self, A, X, act=lambda x: x):
@@ -103,10 +111,15 @@ class GCN():
         -----
         The difference between the SparseConv and DenseConv is the type of X
         """
-        _prod = dot(X, self.W2)
-        _prod = spdot(A, _prod)
+        _prod = dot(A, X)
+        # _prod = dot(tf.transpose(A), X)
+
+        _prod = dot(_prod, self.W2)
         return act(_prod)
 
+    # def DenseProd(self, A, X, act=lambda x:x)
+    #     _prod = dot(A, X)
+    #     _prod = dot(_prod, self.W1)
     def train_model(self, train_idx, val_idx, labels):
         """ Train the model with train set and validation set
 

@@ -24,9 +24,9 @@ if __name__ == "__main__":
     flags.DEFINE_bool('output', False, 'Toggle the output.')
     flags.DEFINE_bool('verbose', False, 'Toogle the verbose.')
 
-    seed = 15
-    np.random.seed(seed)
-    tf.set_random_seed(seed)
+    # seed = 15
+    # np.random.seed(seed)
+    # tf.set_random_seed(seed)
 
     # Load network, basic setup
     _A_obs, _X_obs, _z_obs = utils.load_npz('data/{}.npz'.format(FLAGS.dataset))
@@ -83,10 +83,12 @@ if __name__ == "__main__":
     early_stopping = treshold
     
 
-    for epoch in range(1000):
-        model.session.run(model.opti, feed_dict=feed_train)
-        train_loss, train_preds = model.session.run([model.loss, model.predictions], feed_train)
-        train_acc = accuracy_score(_z_obs[split_train], np.argmax(train_preds, axis=1))
+    for epoch in range(500):
+        batch = np.random.choice(split_train, 50)
+        feed_sub = build_feed_dict(model, batch, _Z_obs)
+        model.session.run(model.opti, feed_dict=feed_sub)
+        train_loss, train_preds = model.session.run([model.loss, model.predictions], feed_sub)
+        train_acc = accuracy_score(_z_obs[batch], np.argmax(train_preds, axis=1))
 
         val_loss, val_preds = model.session.run([model.loss, model.predictions], feed_val)
         val_acc = accuracy_score(_z_obs[split_val], np.argmax(val_preds, axis=1))
