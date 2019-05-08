@@ -166,24 +166,23 @@ def train_val_test_split_tabular(*arrays, train_size=0.5, val_size=0.3, test_siz
         result.append(X[idx_test])
     return result
 
-def preprocess_graph(adj):
+def preprocess_graph(adj, c=1):
     """ Return the normalized laplacian matrix 
         normalized_laplacian = D^{-1/2} (D-A)D^{-1/2}
-
     Parameters
     ----------
     adj: a sparse matrix represents the adjacency matrix
-
     Returns
     -------
     adj_normalized: a sparse matrix represents the normalized laplacian
         matrix
     """
-    adj_ = adj + 1 * sp.eye(adj.shape[0])
-    rowsum = adj_.sum(1).A1
-    degree_mat_inv_sqrt = sp.diags(np.power(rowsum, -0.5))
-    adj_normalized = adj_.dot(degree_mat_inv_sqrt).T.dot(degree_mat_inv_sqrt).tocsr()
-    return adj_normalized
+    adj_ = adj + c * sp.eye(adj.shape[0])
+    dseq = adj.sum(1).A1
+    D = sp.diags(dseq)
+    D_inv_sqrt = sp.diags(np.power(dseq, -0.5))
+    adj_normalized = D_inv_sqrt @ adj_ @ D_inv_sqrt
+    return adj_normalized.tocsr()
 
 
 def correct_predicted(y_true, y_pred):
